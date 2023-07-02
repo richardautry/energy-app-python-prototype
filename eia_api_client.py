@@ -2,6 +2,8 @@ import requests
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import json
+from dataclasses import dataclass
+from utils import convert_camel_to_snake_case
 
 EIA_URL = "https://api.eia.gov/v2/electricity/rto/region-data/data/"
 
@@ -18,6 +20,33 @@ class Facet(Enum):
     MIDA = "MIDA"
 
 
+@dataclass
+class Data:
+    period: str
+    respondent: str
+    respondent_name: str
+    type: str
+    type_name: str
+    value: int
+    value_units: str
+
+
+@dataclass
+class EIAResponse:
+    total: int
+    date_format: str
+    frequency: str
+    data: list[Data]
+    description: str
+
+
+@dataclass
+class EIAJsonResult:
+    response: dict
+    request: dict
+    api_version: str
+
+
 class EIAClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -29,7 +58,7 @@ class EIAClient:
             facet: Facet | None,
             start: datetime | None,
             end: datetime | None
-    ):
+    ) -> EIAResponse:
         # url = f"{EIA_URL}?api_key={self.api_key}"
         url = EIA_URL
         arg_map = {
@@ -39,13 +68,34 @@ class EIAClient:
             "start": self._format_datetime(start),
             "end": self._format_datetime(end)
         }
-        params = f"api_key={api_key}"
+        params = f"api_key={self.api_key}"
         for field, value in arg_map.items():
             if value is not None:
                 params += f"&{field}={value}"
 
         response = requests.get(url, params=params)
-        return
+        assert response.status_code == 200
+        eia_response = self.parse_response(response.json())
+        return eia_response
+
+    def parse_response(self, result: dict) -> EIAResponse:
+        eia_json_result = EIAJsonResult(
+            **self.convert_dict_to_snake_case(result)
+        )
+
+        eia_response_dict = self.convert_dict_to_snake_case(eia_json_result.response)
+        eia_response_dict["data"] = [Data(**self.convert_dict_to_snake_case(data_item)) for data_item in eia_response_dict.get("data")]
+        eia_response = EIAResponse(
+            **eia_response_dict
+        )
+        return eia_response
+
+    @staticmethod
+    def convert_dict_to_snake_case(result: dict) -> dict:
+        # TODO: Convert to recursive
+        return {
+            convert_camel_to_snake_case(key).replace("-", "_"): val for key, val in result.items()
+        }
 
     @staticmethod
     def _format_datetime(dt: datetime):
