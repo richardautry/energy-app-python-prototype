@@ -1,5 +1,7 @@
 from eia_api_client import Data
 from datetime import datetime
+import asyncio
+from kasa import Discover
 
 
 def get_charge_start_time(charge_time: int, data: list[Data]) -> datetime:
@@ -22,6 +24,11 @@ def get_charge_start_time(charge_time: int, data: list[Data]) -> datetime:
 
 
 if __name__ == "__main__":
-    # TODO: Issue calls to turn smart plug on/off
-    # TODO: Schedule smart plug
-    pass
+    """
+    This will find all devices and turn the Test device off
+    """
+    found_devices = asyncio.run(Discover.discover())
+    test_device = list(filter(lambda device: device.alias == "Test", list(found_devices.values())))[0]
+    print(f"Test is on {test_device.is_on}")
+
+    asyncio.run(test_device.turn_off())
