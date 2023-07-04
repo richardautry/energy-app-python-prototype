@@ -30,6 +30,15 @@ class Data:
     value: int
     value_units: str
 
+    @property
+    def period_datetime(self) -> datetime:
+        split_period = self.period.split("T")
+        date_string = split_period[0]
+        time_string = split_period[1]
+        hour_string = f"{time_string[:2]}:00"
+        offset_hour_string = f"{time_string[2:]}:00"
+        return datetime.fromisoformat(f"{date_string}T{hour_string}{offset_hour_string}")
+
 
 @dataclass
 class EIAResponse:
@@ -110,10 +119,13 @@ if __name__ == "__main__":
     api_key = config_json.get("api_key")
 
     eia_client = EIAClient(api_key)
-    eia_client.get_data(
+    eia_response = eia_client.get_data(
         frequency=Frequency.LOCAL_HOURLY,
         data_type=DataType.VALUE,
         facet=Facet.MIDA,
         start=datetime(2023, 6, 24, tzinfo=timezone(offset=-timedelta(hours=4))),
         end=datetime(2023, 7, 1, tzinfo=timezone(offset=-timedelta(hours=4)))
     )
+
+    for data in eia_response.data[:1]:
+        print(data.period_datetime)
